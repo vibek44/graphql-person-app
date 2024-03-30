@@ -1,7 +1,9 @@
 //ApolloServer class from the apollo server package is used to create server
-
+//startStandaloneServer is used to create server that serves frontend client
 const { ApolloServer } = require('@apollo/server')
 const { startStandaloneServer } = require('@apollo/server/standalone')
+const { v1: uuid } = require('uuid')
+const { GraphQLError } = require('graphql')
 
 let persons = [
   {
@@ -27,29 +29,98 @@ let persons = [
 ]
 
 const typeDefs = `
+  type Address {
+    street:String!
+    city:String!
+  }
+
   type Person {
     name: String!
     phone: String
-    street: String!
-    city: String! 
+    address:Address!
     id: ID!
+  }
+
+  enum YesNo{
+    YES
+    NO
   }
 
   type Query {
     personCount: Int!
-    allPersons: [Person!]!
+    allPersons(phone:YesNo): [Person!]!
     findPerson(name: String!): Person
+  }
+
+  type Mutation {
+    addPerson(
+      name:String!
+      phone:String!
+      street:String!
+      city:String!
+    ):Person
+    editPerson(
+      name:String!
+      phone:String!
+    ):Person
   }
 `
 //resolvers is needed to resolve the defined schema object field path
+//these are code which define how queries are responded to
 const resolvers = {
   Query: {
-    personCount: () => persons.length, //personCount query resolves to function returning person length
-    allPersons: () => persons,
+    //personCount query resolves to function returning person length
+    personCount: () => persons.length,
+    allPersons: (root, args) => {
+      if (!args.phone) {
+        //console.log(args.phone)
+        return persons
+      }
+      //console.log(args)
+      const byPhone = (person) =>
+        args.phone === 'YES' ? person.phone : !person.phone
+
+      const out = persons.filter(byPhone)
+      console.log(out)
+
+      return out
+    },
     findPerson: (root, args) => persons.find((p) => p.name === args.name),
   },
+  Person: {
+    address: (root) => {
+      return {
+        street: root.street,
+        city: root.city,
+      }
+    },
+  },
+  Mutation: {
+    addPerson: (root, args) => {
+      if (persons.find((p) => p.name === args.name)) {
+        throw new GraphQLError('Name must be unique', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+            invalidArgs: args.name,
+          },
+        })
+      }
+      const person = { ...args, id: uuid() }
+      persons = persons.concat(person)
+      return person
+    },
+    editPerson: (root, args) => {
+      const person = persons.find((p) => p.name === args.name)
+      if (!person) return null
+      const updatedPerson = { ...person, phone: args.phone }
+      console.log(person)
+
+      persons = persons.map((p) => (p.name === args.name ? updatedPerson : p))
+      return updatedPerson
+    },
+  },
 }
-// server is created using ApolloServer which takes typedefs as string parameter and resolver is an object
+// server is created using ApolloServer which takes typedefs(schema as string)  and resolver is an object
 const server = new ApolloServer({
   typeDefs,
   resolvers,
