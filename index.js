@@ -55,7 +55,7 @@ const typeDefs = `
   type Mutation {
     addPerson(
       name:String!
-      phone:String!
+      phone:String
       street:String!
       city:String!
     ):Person
@@ -85,7 +85,7 @@ const resolvers = {
 
       return out
     },
-    findPerson: (root, args) => persons.find((p) => p.name === args.name),
+    findPerson: (root, args) => persons.find((p) => p.name.toLowerCase() === args.name.toLowerCase()),
   },
   Person: {
     address: (root) => {
@@ -97,7 +97,7 @@ const resolvers = {
   },
   Mutation: {
     addPerson: (root, args) => {
-      if (persons.find((p) => p.name === args.name)) {
+      if (persons.find((p) => p.name.toLowerCase() === args.name.toLowerCase())) {
         throw new GraphQLError('Name must be unique', {
           extensions: {
             code: 'BAD_USER_INPUT',
@@ -110,12 +110,11 @@ const resolvers = {
       return person
     },
     editPerson: (root, args) => {
-      const person = persons.find((p) => p.name === args.name)
+      const person = persons.find((p) => p.name.toLowerCase() === args.name.toLowerCase())
       if (!person) return null
       const updatedPerson = { ...person, phone: args.phone }
-      console.log(person)
-
-      persons = persons.map((p) => (p.name === args.name ? updatedPerson : p))
+      //console.log(person)
+      persons = persons.map((p) => (p.name.toLowerCase() === args.name.toLowerCase() ? updatedPerson : p))
       return updatedPerson
     },
   },
